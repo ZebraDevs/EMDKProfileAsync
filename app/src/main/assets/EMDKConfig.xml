@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?><!--This is an auto generated document. Changes to this document may cause incorrect behavior.--><wap-provisioningdoc>
+  <characteristic type="ProfileInfo">
+    <parm name="created_wizard_version" value="6.8.1"/>
+  </characteristic>
+  <characteristic type="Profile">
+    <parm name="ProfileName" value="ClockProfile"/>
+    <parm name="ModifiedDate" value="2018-06-26 12:36:23"/>
+    <parm name="TargetSystemVersion" value="4.2"/>
+    <characteristic type="Clock" version="4.2">
+      <parm name="emdk_name" value=""/>
+      <parm name="AutoTime" value="false"/>
+      <parm name="TimeZone" value="GMT+02:00"/>
+      <parm name="Date" value="2018-06-28"/>
+      <parm name="Time" value="09:00:00"/>
+    </characteristic>
+  </characteristic>
+</wap-provisioningdoc>

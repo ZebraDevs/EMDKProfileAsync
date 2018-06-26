@@ -1,5 +1,10 @@
 apply plugin: 'com.android.application'
 
+// sdkDir is a reference to the Android SDK folder on the running PC
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+def sdkDir = properties.getProperty('sdk.dir')
+
 android {
     compileSdkVersion 27
     defaultConfig {
@@ -25,4 +30,6 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+    // Add reference to EMDK for Android v6.9
+    compileOnly fileTree(include: ['com.symbol.emdk.jar'], dir: sdkDir+'/add-ons/addon-symbol_emdk-symbol-26/libs/')
 }
