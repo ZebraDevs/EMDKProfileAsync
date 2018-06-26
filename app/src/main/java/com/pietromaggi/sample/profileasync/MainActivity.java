@@ -5,7 +5,10 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Xml;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.symbol.emdk.EMDKBase;
+import com.symbol.emdk.EMDKException;
 import com.symbol.emdk.EMDKManager;
 import com.symbol.emdk.EMDKResults;
 import com.symbol.emdk.ProfileManager;
@@ -15,10 +18,9 @@ import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.StringReader;
 
-public class MainActivity extends AppCompatActivity implements EMDKManager.EMDKListener {
+public class MainActivity extends AppCompatActivity implements EMDKManager.EMDKListener, EMDKManager.StatusListener {
     private final String profileName = "ClockProfile"; // profile name used in EMDKConfig.xml
 
-    private ProfileManager profileManager = null;
     private EMDKManager emdkManager = null;
 
     private TextView statusTextView = null;
@@ -28,18 +30,19 @@ public class MainActivity extends AppCompatActivity implements EMDKManager.EMDKL
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        statusTextView = (TextView) findViewById(R.id.tvStatus);
-
-        //Set default values for time zone, date and time
+        statusTextView = findViewById(R.id.tvStatus);
+        if (null == statusTextView) {
+            Toast.makeText(this, "Error: TextView reference is null", Toast.LENGTH_SHORT).show();
+            this.finish();
+        }
 
         //The EMDKManager object will be created and returned in the callback.
         EMDKResults results = EMDKManager.getEMDKManager(getApplicationContext(), this);
 
         //Check the return status of EMDKManager object creation.
-        if (results.statusCode == EMDKResults.STATUS_CODE.SUCCESS) {
-            //EMDKManager object creation success
-        } else {
-            //EMDKManager object creation failed
+        if (results.statusCode != EMDKResults.STATUS_CODE.SUCCESS) {
+            Toast.makeText(this, "EMDKManager object creation failed", Toast.LENGTH_SHORT).show();
+            this.finish();
         }
 
     }
@@ -49,10 +52,6 @@ public class MainActivity extends AppCompatActivity implements EMDKManager.EMDKL
         super.onDestroy();
 
         //Clean up the objects created by EMDK manager
-        if (profileManager != null) {
-            profileManager = null;
-        }
-
         if (emdkManager != null) {
             emdkManager.release();
             emdkManager = null;
@@ -61,29 +60,16 @@ public class MainActivity extends AppCompatActivity implements EMDKManager.EMDKL
 
     @Override
     public void onOpened(EMDKManager emdkManager) {
-        String[] modifyData = new String[1];
-        String resultString = "Error Applying profile";
-
-
         statusTextView.setText("EMDK open success.");
 
         this.emdkManager = emdkManager;
 
-        //Get the ProfileManager object to process the profiles
-        profileManager = (ProfileManager) emdkManager.getInstance(EMDKManager.FEATURE_TYPE.PROFILE);
-
-        //Call process profile to modify the profile of specified profile name
-        EMDKResults results = profileManager.processProfile(profileName, ProfileManager.PROFILE_FLAG.SET, modifyData);
-
-        //Check the return status of processProfile
-        if (results.statusCode == EMDKResults.STATUS_CODE.SUCCESS) {
-            resultString = "Profile Applied Successfully";
-        } else if (results.statusCode == EMDKResults.STATUS_CODE.CHECK_XML) {
-            resultString = parseXML(results.getStatusString());
+        // Get the ProfileManager object to process the profiles
+        try {
+            emdkManager.getInstanceAsync(EMDKManager.FEATURE_TYPE.PROFILE, this);
+        } catch (EMDKException e) {
+            e.printStackTrace();
         }
-
-        statusTextView.setText(resultString);
-
     }
 
     @Override
@@ -157,5 +143,63 @@ public class MainActivity extends AppCompatActivity implements EMDKManager.EMDKL
         }
 
         return resultString;
+    }
+
+    @Override
+    public void onStatus(EMDKManager.StatusData statusData, EMDKBase emdkBase) {
+        if ((EMDKResults.STATUS_CODE.SUCCESS != statusData.getResult()) ||
+                (EMDKManager.FEATURE_TYPE.PROFILE != statusData.getFeatureType()) ||
+                (EMDKManager.FEATURE_TYPE.PROFILE != emdkBase.getType())){
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    statusTextView.setText("Error: The Profile has not been sent for processing...");
+                }
+            });
+
+            return;
+        }
+
+        ProfileManager profileManager = (ProfileManager) emdkBase;
+
+        if (profileManager != null) {
+            String[] modifyData = new String[1];
+
+            profileManager.addDataListener(new ProfileManager.DataListener() {
+                @Override
+                public void onData(ProfileManager.ResultData resultData) {
+                    String resultString = "Error Applying profile";
+                    EMDKResults results = resultData.getResult();
+
+                    //Check the return status of processProfile
+                    if (results.statusCode == EMDKResults.STATUS_CODE.SUCCESS) {
+                        resultString = "Profile Applied Successfully";
+                    } else if (results.statusCode == EMDKResults.STATUS_CODE.CHECK_XML) {
+                        resultString = parseXML(results.getStatusString());
+                    }
+
+                    final String finalResultString = resultString;
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            statusTextView.setText(finalResultString);
+                        }
+                    });
+                }
+            });
+
+            EMDKResults results = profileManager.processProfileAsync(profileName,
+                    ProfileManager.PROFILE_FLAG.SET, modifyData);
+
+            if (results.statusCode != EMDKResults.STATUS_CODE.PROCESSING) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        statusTextView.setText("Error: The Profile has not been sent for processing...");
+                    }
+                });
+            }
+        }
     }
 }
